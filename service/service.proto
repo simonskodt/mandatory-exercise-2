@@ -18,6 +18,7 @@ message Request {
 }
 
 service Service {
+  rpc CreateStream (Request) returns (stream Request);
   rpc BroadcastRequest (Request) returns (Request);
   rpc RespondNode (Request) returns (Response);
 }

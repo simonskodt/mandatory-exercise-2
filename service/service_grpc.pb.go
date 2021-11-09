@@ -18,6 +18,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ServiceClient interface {
+	CreateStream(ctx context.Context, in *Request, opts ...grpc.CallOption) (Service_CreateStreamClient, error)
 	BroadcastRequest(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Request, error)
 	RespondNode(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Response, error)
 }
@@ -28,6 +29,38 @@ type serviceClient struct {
 
 func NewServiceClient(cc grpc.ClientConnInterface) ServiceClient {
 	return &serviceClient{cc}
+}
+
+func (c *serviceClient) CreateStream(ctx context.Context, in *Request, opts ...grpc.CallOption) (Service_CreateStreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Service_ServiceDesc.Streams[0], "/Service.Service/CreateStream", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &serviceCreateStreamClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Service_CreateStreamClient interface {
+	Recv() (*Request, error)
+	grpc.ClientStream
+}
+
+type serviceCreateStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *serviceCreateStreamClient) Recv() (*Request, error) {
+	m := new(Request)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (c *serviceClient) BroadcastRequest(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Request, error) {
@@ -52,6 +85,7 @@ func (c *serviceClient) RespondNode(ctx context.Context, in *Request, opts ...gr
 // All implementations must embed UnimplementedServiceServer
 // for forward compatibility
 type ServiceServer interface {
+	CreateStream(*Request, Service_CreateStreamServer) error
 	BroadcastRequest(context.Context, *Request) (*Request, error)
 	RespondNode(context.Context, *Request) (*Response, error)
 	mustEmbedUnimplementedServiceServer()
@@ -61,6 +95,9 @@ type ServiceServer interface {
 type UnimplementedServiceServer struct {
 }
 
+func (UnimplementedServiceServer) CreateStream(*Request, Service_CreateStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method CreateStream not implemented")
+}
 func (UnimplementedServiceServer) BroadcastRequest(context.Context, *Request) (*Request, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BroadcastRequest not implemented")
 }
@@ -78,6 +115,27 @@ type UnsafeServiceServer interface {
 
 func RegisterServiceServer(s grpc.ServiceRegistrar, srv ServiceServer) {
 	s.RegisterService(&Service_ServiceDesc, srv)
+}
+
+func _Service_CreateStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(Request)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ServiceServer).CreateStream(m, &serviceCreateStreamServer{stream})
+}
+
+type Service_CreateStreamServer interface {
+	Send(*Request) error
+	grpc.ServerStream
+}
+
+type serviceCreateStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *serviceCreateStreamServer) Send(m *Request) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 func _Service_BroadcastRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -132,6 +190,12 @@ var Service_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Service_RespondNode_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "CreateStream",
+			Handler:       _Service_CreateStream_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "service/service.proto",
 }

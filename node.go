@@ -1,26 +1,26 @@
-package mandatory
-
-import "google.golang.org/grpc"
+package main
 
 import (
-	"context"
 	"google.golang.org/grpc"
-	"utils"
+	"mandatory-exercise-2/utils"
+	"mandatory-exercise-2/service"
 )
 
+var lamport = &utils.Lamport{}
+var logger = utils.NewLogger("Node")
+
 func main() {
-
-}
-
-type ServiceClient interface {
-	BroadcastRequest(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Request, error)
-	RespondNode(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Response, error)
-}
-
-func Broadcast() {
-	var request = &{
-		lamport:
+	conn, err := grpc.Dial("localhost:8080", grpc.WithInsecure())
+	if err != nil {
+		logger.ErrorLogger.Fatalf("Could not connect to server. :: %v", err)
 	}
+	var _ = service.NewServiceClient(conn)
 }
 
-func BroadcastRequest(ctx context.Context, )
+func broadcast() {
+	
+}
+
+func respondClient()  {
+	
+}
