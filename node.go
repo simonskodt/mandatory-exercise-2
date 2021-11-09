@@ -1,9 +1,11 @@
-package main
+package mandatory
+
+import "google.golang.org/grpc"
 
 import (
 	"context"
 	"google.golang.org/grpc"
-	utils
+	"utils"
 )
 
 func main() {
