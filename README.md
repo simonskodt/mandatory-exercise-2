@@ -7,7 +7,7 @@ Implementation of a distributed mutual exclusion between nodes in a distributed 
 
 ## Description
 
-You have to implement distributed mutual exclusion between nodes in your distributed system. 
+You have to implement distributed mutual exclusion between nodes in your distributed system.
 
 You can choose to implement any of the algorithms, that were discussed in lecture 7.
 
