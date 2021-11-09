@@ -29,8 +29,8 @@ R2: Every node that requests access to the Critical Section, will get access to 
 2. Use gRPC for message passing between nodes
 3. Your nodes need to find each other.  For service discovery, you can choose one of the following options
     1. supply a file with  ip addresses/ports of other nodes
-    2. enter ip adress/ports trough command line
-    3. use the Serf package for service discovery
+    2. enter ip address/ports trough command line
+    3. use the [Serf package](https://github.com/hashicorp/serf) for service discovery
 4. Demonstrate that the system can be started with at least 3 nodes
 5. Demonstrate using logs,  that a node gets access to the Critical Section
 
