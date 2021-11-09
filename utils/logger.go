@@ -5,14 +5,19 @@ import (
 	"os"
 )
 
+// logPath is the path to the output directory for the Logger.
 const logPath = "..\\logs\\"
 
+// Logger is a log used to write log calls to a file.
+// It consists of three prefix loggers InfoLogger, WarningLogger and ErrorLogger,
+// which sets their respective prefix to the log file.
 type Logger struct {
-	InfoLogger    *log.Logger
-	WarningLogger *log.Logger
-	ErrorLogger   *log.Logger
+	InfoLogger    *log.Logger	// InfoLogger adds the prefix "INFO" to the log string at each call.
+	WarningLogger *log.Logger	// WarningLogger adds the prefix "WARNING" to the log string at each call.
+	ErrorLogger   *log.Logger	// ErrorLogger adds the prefix "ERROR" to the log string at each call.
 }
 
+// NewLogger creates a new Logger and binds it to a file with the given filename.
 func NewLogger(filename string) *Logger {
 	if _, err := os.Stat(logPath); os.IsNotExist(err) {
 		_ = os.Mkdir(logPath, os.ModeDir)
