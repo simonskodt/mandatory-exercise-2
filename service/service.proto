@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+option go_package = "./service";
+
+// Compile protofile with:
+// protoc -I="." --go_out="." service/service.proto
+// protoc --go-grpc_out="." service/service.proto
+
+package Service;
+
+message Response {
+  int32 lamport = 1;
+}
+
+message Request {
+  int32 lamport = 1;
+  int32 id = 2;
+}
+
+service Service {
+  rpc BroadcastRequest (Request) returns (Request);
+  rpc RespondNode (Request) returns (Response);
+}
+
