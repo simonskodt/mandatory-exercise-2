@@ -3,22 +3,23 @@ package main
 import (
 	"flag"
 	"github.com/hashicorp/serf/serf"
-	"google.golang.org/grpc"
-	"mandatory-exercise-2/service"
+	"mandatory-exercise-2/client"
+	"mandatory-exercise-2/server"
 	"mandatory-exercise-2/utils"
-	"net"
+	"strconv"
 )
 
 var Node *node
+var logger *utils.Logger
+var done = make(chan int)
 
 type node struct {
 	id int
 	address string
 	port string
-	client service.ServiceClient
-	server service.ServiceServer
+	client *client.Client
+	server *server.Server
 	lamport *utils.Lamport
-	logger *utils.Logger
 }
 
 func main() {
@@ -27,21 +28,51 @@ func main() {
 	var port = flag.String("port", "8080", "The port of the node.")
 	flag.Parse()
 
+	// Create logger
+	logger = utils.NewLogger("node_"+ strconv.Itoa(*id))
 
+	// Create node and start node server
+	logger.InfoPrintln("Creating node...")
 	Node = newNode(*id, *address, *port)
-	conn, err := grpc.Dial("localhost:8080", grpc.WithInsecure())
+	Node.init()
+	logger.InfoPrintln("Node created.")
+
+	// Setup cluster
+	//cluster, err := setupCluster(os.Getenv("ADVERTISE_ADDR"), os.Getenv("CLUSTER_ADDR"))
+	//if err != nil {
+	//	logger.ErrorLogger.Fatalf("Failed setting up cluster. :: %v", err)
+	//}
+	//defer func(cluster *serf.Serf) {
+	//	err := cluster.Leave()
+	//	if err != nil {
+	//		logger.ErrorLogger.Fatalf("Fatal error. :: %v", err)
+	//	}
+	//}(cluster)
+
+	<- done
+}
+
+func (n *node) init() {
+	go n.server.StartServer()
+	n.client.ConnectClient()
+}
+
+func setupCluster(advertiseAddr string, clusterAddr string) (*serf.Serf, error){
+	conf := serf.DefaultConfig()
+	conf.Init()
+	conf.MemberlistConfig.AdvertiseAddr = advertiseAddr
+
+	cluster, err := serf.Create(conf)
 	if err != nil {
-		logger.ErrorLogger.Fatalf("Could not connect to server. :: %v", err)
+		return nil, err
 	}
-	var _ = service.NewServiceClient(conn)
-}
 
-func (n *node) broadcast() {
+	_, err = cluster.Join([]string{clusterAddr}, true)
+	if err != nil {
+		logger.ErrorLogger.Printf("Could not join cluster, starting own. :: %v\n", err)
+	}
 
-}
-
-func (n *node) respondClient()  {
-	
+	return cluster, nil
 }
 
 func newNode(id int, address string, port string) *node {
@@ -49,27 +80,8 @@ func newNode(id int, address string, port string) *node {
 		id: id,
 		address: address,
 		port: port,
-		server: newServer(port),
-		client: newClient(address, port),
+		server: server.NewServer(logger, address, port),
+		client: client.NewClient(logger, address, port),
 		lamport: &utils.Lamport{T: 0},
-		logger: utils.NewLogger("Node"),
 	}
-}
-
-func newClient(address string, port string) service.ServiceClient {
-	conn, err := grpc.Dial(address+":"+port)
-	if err != nil {
-		Node.logger.ErrorLogger.Fatalf("Could not connect to server. :: %v", err)
-	}
-	return service.NewServiceClient(conn)
-}
-
-func newServer(port string) service.ServiceServer {
-	listener, err := net.Listen("tcp", ":"+port)
-	if err != nil {
-		Node.logger.ErrorLogger.Fatalf("Could not listen at port %v. :: %v", port, err)
-	}
-
-	var grpcServer = grpc.NewServer()
-	service.RegisterServiceServer(grpcServer, )
 }
