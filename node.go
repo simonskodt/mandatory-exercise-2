@@ -6,6 +6,7 @@ import (
 	"mandatory-exercise-2/client"
 	"mandatory-exercise-2/server"
 	"mandatory-exercise-2/utils"
+	"os"
 	"strconv"
 )
 
@@ -37,17 +38,17 @@ func main() {
 	Node.init()
 	logger.InfoPrintln("Node created.")
 
-	// Setup cluster
-	//cluster, err := setupCluster(os.Getenv("ADVERTISE_ADDR"), os.Getenv("CLUSTER_ADDR"))
-	//if err != nil {
-	//	logger.ErrorLogger.Fatalf("Failed setting up cluster. :: %v", err)
-	//}
-	//defer func(cluster *serf.Serf) {
-	//	err := cluster.Leave()
-	//	if err != nil {
-	//		logger.ErrorLogger.Fatalf("Fatal error. :: %v", err)
-	//	}
-	//}(cluster)
+	//Setup cluster
+	cluster, err := setupCluster(os.Getenv("ADVERTISE_ADDR"), os.Getenv("CLUSTER_ADDR"))
+	if err != nil {
+		logger.ErrorLogger.Fatalf("Failed setting up cluster. :: %v", err)
+	}
+	defer func(cluster *serf.Serf) {
+		err := cluster.Leave()
+		if err != nil {
+			logger.ErrorLogger.Fatalf("Fatal error. :: %v", err)
+		}
+	}(cluster)
 
 	<- done
 }
