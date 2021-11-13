@@ -3,18 +3,19 @@ package main
 import (
 	"google.golang.org/grpc"
 	"service"
+	"strconv"
 	"utils"
 )
 
 type client struct {
-	logger *utils.Logger
 	client service.ServiceClient
+	logger *utils.Logger
 }
 
-func (c *client) connect(ipAddress string) {
+func (c *client) connect(address string, port int) {
 	c.logger.InfoPrintln("Connecting client...")
 	// Create client connection to server
-	conn, err := grpc.Dial(ipAddress, grpc.WithInsecure(), grpc.WithBlock())
+	conn, err := grpc.Dial(address + ":" + strconv.Itoa(port), grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		c.logger.ErrorLogger.Fatalf("Could not connect to server. :: %v", err)
 	}
@@ -24,7 +25,7 @@ func (c *client) connect(ipAddress string) {
 	c.logger.InfoPrintln("Client connected.")
 }
 
-func newClient(logger *utils.Logger)  *client {
+func newClient(logger *utils.Logger) *client {
 	return &client{
 		logger: logger,
 	}

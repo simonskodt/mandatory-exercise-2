@@ -3,34 +3,45 @@ package main
 import (
 	"google.golang.org/grpc"
 	"net"
+	"service"
+	"strconv"
 	"utils"
 )
 
 type server struct {
 	grpcServer *grpc.Server
-	Logger     *utils.Logger
+	port   int
+	logger *utils.Logger
 }
 
-func (s *server) start(address string)  {
-	s.Logger.InfoPrintln("Starting server...")
+func (s *server) start(address string, port int) {
+	s.logger.InfoPrintln("Starting server...")
 	// start listener
-	listener, err := net.Listen("tcp", address)
+	listener, err := net.Listen("tcp", address+":"+strconv.Itoa(port))
 	if err != nil {
-		s.Logger.ErrorLogger.Fatalf("Could not listen at ip address %v. :: %v", address, err)
+		s.logger.ErrorFatalf("Could not listen at ip address %v. :: %v", address, err)
 	}
+
+	// Register the gRPC server on the node service
+	service.RegisterServiceServer(s.grpcServer, n)
 
 	// Accept incoming connections on the listener
-	s.Logger.InfoPrintln("Server started.")
+	s.logger.InfoPrintln("Server started.")
 	err = s.grpcServer.Serve(listener)
 	if err != nil {
-		s.Logger.ErrorLogger.Fatalf("Failed to start gRPC server. :: %v", err)
+		s.logger.ErrorFatalf("Failed to start gRPC server. :: %v", err)
 	}
 }
 
-func newServer(logger *utils.Logger) *server {
+func (s *server) stop() {
+	s.logger.WarningPrintln("Stopping server...")
+
+}
+
+func newServer(port int, logger *utils.Logger) *server {
 	return &server{
 		grpcServer: grpc.NewServer(),
-		Logger:     logger,
+		port:   port,
+		logger: logger,
 	}
 }
-
