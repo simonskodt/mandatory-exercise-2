@@ -17,9 +17,10 @@ message Request {
   int32 id = 2;
 }
 
+//rpc CreateStream (Request) returns (stream Request);
+//rpc RespondNode (Request) returns (Response);
+
 service Service {
-  rpc CreateStream (Request) returns (stream Request);
   rpc BroadcastRequest (Request) returns (Request);
-  rpc RespondNode (Request) returns (Response);
 }
 

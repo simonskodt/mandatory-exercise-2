@@ -6,7 +6,7 @@ import (
 )
 
 // logPath is the path to the output directory for the Logger.
-const logPath = "logs\\"
+const logPath = "..\\logs\\"
 
 // Logger is a log used to write log calls to a file.
 // It consists of three prefix loggers InfoLogger, WarningLogger and ErrorLogger,
@@ -27,6 +27,11 @@ func (l *Logger) InfoPrintln(v ...interface{}) {
 func (l *Logger) WarningPrintln(v ...interface{}) {
 	l.WarningLogger.Println(v...)
 	log.Println(v...)
+}
+
+func (l *Logger) WarningPrintf(format string, v ...interface{}) {
+	l.WarningLogger.Printf(format, v...)
+	log.Printf(format, v...)
 }
 
 // NewLogger creates a new Logger and binds it to a file with the given filename.

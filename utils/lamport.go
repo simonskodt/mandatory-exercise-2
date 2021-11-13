@@ -25,3 +25,10 @@ func (l *Lamport) MaxAndIncrement(other int32) {
 
 	l.T++
 }
+
+// NewLamport creates a new Lamport Clock with T = 0.
+func NewLamport() *Lamport {
+	return &Lamport{
+		T: 0,
+	}
+}

@@ -18,9 +18,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ServiceClient interface {
-	CreateStream(ctx context.Context, in *Request, opts ...grpc.CallOption) (Service_CreateStreamClient, error)
 	BroadcastRequest(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Request, error)
-	RespondNode(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Response, error)
 }
 
 type serviceClient struct {
@@ -29,38 +27,6 @@ type serviceClient struct {
 
 func NewServiceClient(cc grpc.ClientConnInterface) ServiceClient {
 	return &serviceClient{cc}
-}
-
-func (c *serviceClient) CreateStream(ctx context.Context, in *Request, opts ...grpc.CallOption) (Service_CreateStreamClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Service_ServiceDesc.Streams[0], "/Service.Service/CreateStream", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &serviceCreateStreamClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type Service_CreateStreamClient interface {
-	Recv() (*Request, error)
-	grpc.ClientStream
-}
-
-type serviceCreateStreamClient struct {
-	grpc.ClientStream
-}
-
-func (x *serviceCreateStreamClient) Recv() (*Request, error) {
-	m := new(Request)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
 }
 
 func (c *serviceClient) BroadcastRequest(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Request, error) {
@@ -72,22 +38,11 @@ func (c *serviceClient) BroadcastRequest(ctx context.Context, in *Request, opts 
 	return out, nil
 }
 
-func (c *serviceClient) RespondNode(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Response, error) {
-	out := new(Response)
-	err := c.cc.Invoke(ctx, "/Service.Service/RespondNode", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // ServiceServer is the server API for Service service.
 // All implementations must embed UnimplementedServiceServer
 // for forward compatibility
 type ServiceServer interface {
-	CreateStream(*Request, Service_CreateStreamServer) error
 	BroadcastRequest(context.Context, *Request) (*Request, error)
-	RespondNode(context.Context, *Request) (*Response, error)
 	mustEmbedUnimplementedServiceServer()
 }
 
@@ -95,14 +50,8 @@ type ServiceServer interface {
 type UnimplementedServiceServer struct {
 }
 
-func (UnimplementedServiceServer) CreateStream(*Request, Service_CreateStreamServer) error {
-	return status.Errorf(codes.Unimplemented, "method CreateStream not implemented")
-}
 func (UnimplementedServiceServer) BroadcastRequest(context.Context, *Request) (*Request, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BroadcastRequest not implemented")
-}
-func (UnimplementedServiceServer) RespondNode(context.Context, *Request) (*Response, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RespondNode not implemented")
 }
 func (UnimplementedServiceServer) mustEmbedUnimplementedServiceServer() {}
 
@@ -115,27 +64,6 @@ type UnsafeServiceServer interface {
 
 func RegisterServiceServer(s grpc.ServiceRegistrar, srv ServiceServer) {
 	s.RegisterService(&Service_ServiceDesc, srv)
-}
-
-func _Service_CreateStream_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(Request)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(ServiceServer).CreateStream(m, &serviceCreateStreamServer{stream})
-}
-
-type Service_CreateStreamServer interface {
-	Send(*Request) error
-	grpc.ServerStream
-}
-
-type serviceCreateStreamServer struct {
-	grpc.ServerStream
-}
-
-func (x *serviceCreateStreamServer) Send(m *Request) error {
-	return x.ServerStream.SendMsg(m)
 }
 
 func _Service_BroadcastRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -156,24 +84,6 @@ func _Service_BroadcastRequest_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Service_RespondNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Request)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ServiceServer).RespondNode(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/Service.Service/RespondNode",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServiceServer).RespondNode(ctx, req.(*Request))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // Service_ServiceDesc is the grpc.ServiceDesc for Service service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -185,17 +95,7 @@ var Service_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "BroadcastRequest",
 			Handler:    _Service_BroadcastRequest_Handler,
 		},
-		{
-			MethodName: "RespondNode",
-			Handler:    _Service_RespondNode_Handler,
-		},
 	},
-	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "CreateStream",
-			Handler:       _Service_CreateStream_Handler,
-			ServerStreams: true,
-		},
-	},
+	Streams:  []grpc.StreamDesc{},
 	Metadata: "service/service.proto",
 }
