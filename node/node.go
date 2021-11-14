@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"flag"
-	"fmt"
 	"os"
 	"os/signal"
 	"service"
@@ -25,28 +23,23 @@ type node struct {
 	address string
 	server  *server
 	client *client
-	serfService *service.SerfService
 	notificationCh chan string
 	peers map[string]service.ServiceClient
 	service.UnimplementedServiceServer
 }
 
 func main() {
-	// Setup flags for commandline arguments: "-name <node name> -address <address> -sport <server port> -bport <serf port> -cport <first node's serf port>"
-	var name = flag.String("name", "node0", "The unique name of the node.")
-	var ipAddress = flag.String("address", address, "The ip address of the node.")
-	var serverPort = flag.Int("sport", 8080, "The port the internal server of the node runs on.")
-	var bindPort = flag.Int("bport", 8081, "The bind port of the node.")
-	var clusterPort = flag.Int("cport", 8081, "The cluster port of the node cluster.")
-	flag.Parse()
+	name := "node0"
+	address := address
+	port := 8080
 
 	// Setup close handler for CTRL + C
 	setupCloseHandler()
 
 	// Create structs
-	logger = utils.NewLogger(*name)
+	logger = utils.NewLogger(name)
 	lamport = utils.NewLamport()
-	n = newNode(*name, *ipAddress, *serverPort, *bindPort, *clusterPort)
+	n = newNode(name, address, port)
 
 	// Start Serf, internal server and connect internal client to server.
 	n.start()
@@ -62,17 +55,8 @@ func (n *node) start() {
 
 	go n.server.start(n.address, n.server.port)
 	n.client.connect(n.address, n.server.port)
-	n.serfService.Init(n.address, n.notificationCh)
-	go n.registerPeers()
 
 	logger.WarningPrintln("NODE STARTED.")
-}
-
-func (n *node) registerPeers()  {
-	for {
-		peer := <- n.notificationCh
-		fmt.Println(peer)
-	}
 }
 
 func (n *node) BroadcastRequest(context.Context, *service.Request) (*service.Request, error)  {
@@ -94,12 +78,11 @@ func setupCloseHandler() {
 }
 
 // newNode creates a new node with the specified unique name and ip address.
-func newNode(name string, address string, serverPort int, bindPort int, clusterPort int) *node {
+func newNode(name string, address string, serverPort int) *node {
 	logger.WarningPrintf("CREATING NODE WITH ID '%v' AND IP ADDRESS '%v'", name, address)
 	return &node{
 		name:    name,
 		address: address,
-		serfService: service.NewSerfService(name, address, bindPort, clusterPort),
 		server:  newServer(serverPort, logger),
 		client:  newClient(logger),
 		notificationCh: make(chan string),
