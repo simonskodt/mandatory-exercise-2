@@ -34,6 +34,7 @@ type node struct {
 func main() {
 	// Setup flags for commandline arguments: "-name <node name> -address <address> -sport <server port> -bport <serf port> -cport <first node's serf port>"
 	var name = flag.String("name", "node0", "The unique name of the node.")
+	var ipAddress = flag.String("address", address, "The ip address of the node.")
 	var serverPort = flag.Int("sport", 8080, "The port the internal server of the node runs on.")
 	var bindPort = flag.Int("bport", 8081, "The bind port of the node.")
 	var clusterPort = flag.Int("cport", 8081, "The cluster port of the node cluster.")
@@ -45,7 +46,7 @@ func main() {
 	// Create structs
 	logger = utils.NewLogger(*name)
 	lamport = utils.NewLamport()
-	n = newNode(*name, address, *serverPort, *bindPort, *clusterPort)
+	n = newNode(*name, *ipAddress, *serverPort, *bindPort, *clusterPort)
 
 	// Start Serf, internal server and connect internal client to server.
 	n.start()
