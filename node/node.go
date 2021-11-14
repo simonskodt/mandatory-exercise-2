@@ -23,7 +23,6 @@ type node struct {
 	address string
 	server  *server
 	client *client
-	notificationCh chan string
 	peers map[string]service.ServiceClient
 	service.UnimplementedServiceServer
 }
@@ -85,7 +84,6 @@ func newNode(name string, address string, serverPort int) *node {
 		address: address,
 		server:  newServer(serverPort, logger),
 		client:  newClient(logger),
-		notificationCh: make(chan string),
 		peers:   make(map[string]service.ServiceClient),
 	}
 }
