@@ -23,10 +23,10 @@ func (s *server) start(address string, port int) {
 	}
 
 	// Register the gRPC server on the node service
-	service.RegisterServiceServer(s.grpcServer, n)
+	service.RegisterServiceServer(s.grpcServer, node)
 
 	// Accept incoming connections on the listener
-	s.logger.InfoPrintln("Server started.")
+	s.logger.InfoPrintln("server started.")
 	err = s.grpcServer.Serve(listener)
 	if err != nil {
 		s.logger.ErrorFatalf("Failed to start gRPC server. :: %v", err)
@@ -45,3 +45,5 @@ func newServer(port int, logger *utils.Logger) *server {
 		logger: logger,
 	}
 }
+
+

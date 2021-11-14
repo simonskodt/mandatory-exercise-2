@@ -26,6 +26,20 @@ func (l *Lamport) MaxAndIncrement(other int32) {
 	l.T++
 }
 
+func (l *Lamport) CompareLamportAndProcess(t1 int32, p1 string, t2 int32, p2 string) bool {
+	if t1 < t2 {
+		return true
+	}
+
+	if t1 == t2 {
+		if p1 < p2 {
+			return true
+		}
+	}
+
+	return false
+}
+
 // NewLamport creates a new Lamport Clock with T = 0.
 func NewLamport() *Lamport {
 	return &Lamport{

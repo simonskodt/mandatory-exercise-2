@@ -22,7 +22,7 @@ func (c *client) connect(address string, port int) {
 	defer conn.Close()
 
 	c.client = service.NewServiceClient(conn)
-	c.logger.InfoPrintln("Client connected.")
+	c.logger.InfoPrintln("client connected.")
 }
 
 func newClient(logger *utils.Logger) *client {
@@ -30,3 +30,5 @@ func newClient(logger *utils.Logger) *client {
 		logger: logger,
 	}
 }
+
+

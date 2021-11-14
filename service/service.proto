@@ -8,19 +8,33 @@ option go_package = "./service";
 
 package Service;
 
-message Response {
-  int32 lamport = 1;
+message Reply {
+  int32 replies = 1;
 }
 
 message Request {
   int32 lamport = 1;
-  int32 id = 2;
+  string id = 2;
 }
 
-//rpc CreateStream (Request) returns (stream Request);
-//rpc RespondNode (Request) returns (Response);
+message Done {
+  int32 lamport = 1;
+  string id = 2;
+}
+
+message Send {
+  int32 lamport = 1;
+  string id = 2;
+}
+
+message Info {
+  string name = 1;
+}
 
 service Service {
-  rpc BroadcastRequest (Request) returns (Request);
+  rpc BroadcastRequest (Request) returns (Reply);
+  rpc ReplySender (Request) returns (Done);
+  rpc Publish (Request) returns (Done);
+  rpc GetName(Send) returns (Info);
 }
 
