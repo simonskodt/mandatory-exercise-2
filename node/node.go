@@ -1,12 +1,13 @@
 package main
 
 import (
+	"client"
 	"context"
 	"flag"
 	"fmt"
-	"google.golang.org/grpc"
 	"os"
 	"os/signal"
+	"server"
 	"service"
 	"strconv"
 	"strings"
@@ -16,23 +17,30 @@ import (
 	"utils"
 )
 
-// DeleteLogsAfterExit determines whether to delete the log file for this node or not at program termination.
-const DeleteLogsAfterExit = true
+// deleteLogsAfterExit determines whether to delete the log file for this node or not at program termination.
+const deleteLogsAfterExit = true
+const defaultAddress = "localhost"
+
+const (
+	WANTED   int = 0
+	HELD         = 1
+	RELEASED     = 2
+)
 
 var node *Node
 var done = make(chan int)
 
 type Node struct {
-	name    string	// id
-	address string
-	server  *server
-	client  *client
-	peers   map[string]service.ServiceClient
-	logger  *utils.Logger
-	lamport *utils.Lamport
-	queue *utils.Queue
-	state   int
-	time    int
+	name    string                           // name is the id of the Node.
+	address string                           // address is the address of the Node.
+	port    int                              // port is the port of the Node.
+	server  *server.Server                   // server is the internal server.Server of the Node.
+	peers   map[string]service.ServiceClient // peers is a map of all the other nodes in the cluster, mapping a Node name, to a service.ServiceClient.
+	logger  *utils.Logger                    // logger is a log which logs specified
+	lamport *utils.Lamport                   // lamport is a logical clock.
+	queue   *utils.Queue                     // queue is the Node's FIFO queue of other nodes.
+	state   int                              // The current state of the Node.
+	time    int                              // Delay time before entering state WANTED.
 	service.UnimplementedServiceServer
 }
 
@@ -43,100 +51,87 @@ func main() {
 	var timer = flag.Int("time", 0, "The delay start time.")
 	flag.Parse()
 
-	node = NewNode(*name, "localhost", *serverPort, *timer)
+	node = NewNode(*name, defaultAddress, *serverPort, *timer)
 
 	// Setup close handler for CTRL + C
 	setupCloseHandler()
 
-	otherPorts := strings.Split(*ports, ":")
-	for _, port := range otherPorts {
-		p, _ := strconv.Atoi(port)
-		go node.registerPeers(p)
-	}
-
-	node.Init()
+	node.start(*ports)
 
 	<-done
 	node.logger.WarningPrintln("NODE STOPPED.")
 	os.Exit(0)
 }
 
-func (n *Node) Init() {
-	// start internal server and connect internal client to server.
-	n.start()
-	n.runAlgorithm()
+func (n *Node) registerPeer(port int) {
+	peer := client.NewClient(createIpAddress(defaultAddress, port), n.logger)
+	info, _ := peer.GetName(context.Background(), &service.InfoRequest{})
+	n.peers[info.Name] = peer
 }
 
-func (n *Node) GetName(context.Context, *service.Send) (*service.Info, error) {
-	return &service.Info{Name: n.name}, nil
-}
-
-func (n *Node) registerPeers(port int) {
-	conn, err := grpc.Dial("localhost"+":"+strconv.Itoa(port), grpc.WithInsecure(), grpc.WithBlock())
-	if err != nil {
-		n.logger.ErrorFatalf("Could not create connection to other node. :: %v", err)
-	}
-
-	c := service.NewServiceClient(conn)
-	info, _ := c.GetName(context.Background(), &service.Send{})
-	n.peers[info.Name] = service.NewServiceClient(conn)
-}
-
-// start the internal server and connect the internal client to it.
-func (n *Node) start() {
+// start the internal server and connect to other peers.
+func (n *Node) start(ports string) {
 	n.logger.WarningPrintln("STARTING NODE...")
 
-	go n.server.start(n.address, n.server.port)
-	n.client.connect(n.address, n.server.port)
+	n.server.Start(n.getIpAddress(), n)
 
 	n.logger.WarningPrintln("NODE STARTED.")
+
+	otherPorts := strings.Split(ports, ":")
+	for _, port := range otherPorts {
+		p, _ := strconv.Atoi(port)
+		go node.registerPeer(p)
+	}
+
+	n.enter()
 }
 
-func (n *Node) runAlgorithm() {
+func (n *Node) enter() {
 	time.Sleep(time.Duration(n.time) * time.Second)
-	n.state = utils.WANTED
-	fmt.Printf("NODE %v entered WANTED\n", n.name)
+	n.state = WANTED
+	n.logger.InfoPrintf("%v entered WANTED\n", n.name)
 
 	// Multicast
-	replies, _ := n.BroadcastRequest(context.Background(), &service.Request{})
+	replies := n.multicast()
 
-	if replies.Replies == int32(len(n.peers)) {
-		n.state = utils.HELD
+	if replies == len(n.peers) {
+		n.state = HELD
 		time.Sleep(5 * time.Second)
 		n.exit()
 	} else {
-		fmt.Println("NOT ENOUGH", replies.Replies, " LENGTH:", len(n.peers))
+		fmt.Println("NOT ENOUGH", replies, " LENGTH:", len(n.peers))
 	}
 }
 
-func (n *Node) exit() {
-	n.state = utils.RELEASED
-	for n.queue.IsEmpty() {
-		tuple := n.queue.Dequeue()
-		n.peers[tuple.Name].ReplySender(context.Background(), &service.Request{})
-	}
-}
+// multicast sends a request to all peers of a Node and counts and returns the number of replies.
+func (n *Node) multicast() int {
+	n.logger.InfoPrintf("%v is now multicasting to peers.", n.name)
 
-func (n *Node) BroadcastRequest(ctx context.Context, r *service.Request) (*service.Reply, error) {
 	wait := sync.WaitGroup{}
 	doneSending := make(chan int)
-	var counter int32
 
-	// INCREMENT LAMPORT
+	// Thread safe counter
+	replies := utils.NewCounter()
+
+	// Increment Lamport
 	n.lamport.Increment()
 
-	for cname, c := range n.peers {
+	for clientName, serviceClient := range n.peers {
 		wait.Add(1)
-		go func() {
+
+		go func(receiverName string, client service.ServiceClient) {
 			defer wait.Done()
-			fmt.Printf("NODE %v is broadcasting to %v\n", n.name, cname)
-			_, err := c.Publish(ctx, &service.Request{Id: n.name, Lamport: n.lamport.T})
-			fmt.Println(err)
+			n.logger.InfoPrintf("(%v, Send) %v is sending a request to %v.\n", n.lamport.Value(), n.name, receiverName)
+
+			_, err := client.Publish(context.Background(), &service.Request{Lamport: n.lamport.Value(), Id: n.name})
 			if err != nil {
-				fmt.Println("Message received counter up!")
-				counter++
+				n.logger.ErrorPrintf("Error sending multicast to %v. :: %v\n", receiverName, err)
+			} else {
+				n.logger.InfoPrintf("Successfully send request to %v.\n", receiverName)
+				replies.Increment()
 			}
-		}()
+
+		}(clientName, serviceClient)
 	}
 
 	go func() {
@@ -144,33 +139,49 @@ func (n *Node) BroadcastRequest(ctx context.Context, r *service.Request) (*servi
 		close(doneSending)
 	}()
 
-	<- doneSending
-	return &service.Reply{Replies: counter}, nil
+	<-doneSending
+	n.logger.InfoPrintf("%v done multicasting. Replies: %v", n.name, replies.Value())
+
+	return replies.Value()
 }
 
-func (n *Node) Publish(ctx context.Context, r *service.Request) (*service.Done, error) {
-	n.receive(r.Lamport, r.Id)
+func (n *Node) receive(lamport int32, name string) error {
+	n.logger.InfoPrintf("%v received request from %v.\n", n.name, name)
 
-	return &service.Done{}, nil
-}
-
-func (n *Node) ReplySender(ctx context.Context, r *service.Request) (*service.Done, error) {
-	fmt.Printf("REPLY_SENDER (%v, Receive) NODE %v is replying %v\n", n.lamport.T, n.name, r.Id)
-	return &service.Done{}, nil
-}
-
-func (n *Node) receive(lamport int32, name string) {
-	if n.state == utils.HELD || (n.state == utils.WANTED && n.lamport.CompareLamportAndProcess(n.lamport.T, n.name, lamport, name)) {
+	if n.state == HELD || (n.state == WANTED && n.lamport.CompareLamportAndProcess(n.name, lamport, name)) {
 		n.queue.Enqueue(lamport, name)
 		n.lamport.MaxAndIncrement(lamport)
-		fmt.Printf("IF (%v, Receive) NODE %v is enqueueing %v\n", n.lamport.T, n.name, name)
 		// TODO: Observer for evt. fejl ved MaxAndIncrement
-	} else {
-		n.lamport.MaxAndIncrement(lamport) // Receive
-		n.lamport.Increment() // Send
-		n.ReplySender(context.Background(), &service.Request{Lamport: lamport, Id: name})
-		fmt.Printf("ELSE (%v, Receive) NODE %v is replying %v\n", n.lamport.T, n.name, name)
+		return fmt.Errorf("(%v, Receive) %v is enqueing %v\n", n.lamport.Value(), n.name, name)
 	}
+
+	n.lamport.MaxAndIncrement(lamport) // Receive
+	n.lamport.Increment()              // Send
+	n.logger.InfoPrintf("(%v, Receive) %v is replying %v -> GO AHEAD!\n", n.lamport.Value(), n.name, name)
+	return nil
+}
+
+func (n *Node) exit() {
+	n.state = RELEASED
+	for !n.queue.IsEmpty() {
+		_, name := n.queue.Dequeue()
+		n.peers[name].ReplySender(context.Background(), &service.Request{})
+	}
+}
+
+// Publish receives requests from another node.
+func (n *Node) Publish(_ context.Context, r *service.Request) (*service.Reply, error) {
+	reply := n.receive(r.Lamport, r.Id)
+	return &service.Reply{}, reply
+}
+
+func (n *Node) ReplySender(_ context.Context, r *service.Request) (*service.Reply, error) {
+	fmt.Printf("REPLY_SENDER (%v, Receive) NODE %v is replying %v\n", n.lamport.Value(), n.name, r.Id)
+	return &service.Reply{}, nil
+}
+
+func (n *Node) GetName(context.Context, *service.InfoRequest) (*service.InfoReply, error) {
+	return &service.InfoReply{Name: n.name}, nil
 }
 
 // setupCloseHandler sets a close handler for this program if it is interrupted
@@ -178,13 +189,21 @@ func setupCloseHandler() {
 	c := make(chan os.Signal, 2)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
-		<-c
-		node.server.stop()
-		if DeleteLogsAfterExit {
+		if deleteLogsAfterExit {
 			node.logger.DeleteLog()
 		}
+		<-c
+		node.server.Stop()
 		close(done)
 	}()
+}
+
+func (n *Node) getIpAddress() string {
+	return n.address + ":" + strconv.Itoa(n.port)
+}
+
+func createIpAddress(address string, port int) string {
+	return address + ":" + strconv.Itoa(port)
 }
 
 // NewNode creates a new node with the specified unique name and ip address.
@@ -195,13 +214,13 @@ func NewNode(name string, address string, serverPort int, time int) *Node {
 	return &Node{
 		name:    name,
 		address: address,
-		server:  newServer(serverPort, logger),
-		client:  newClient(logger),
+		port:    serverPort,
+		server:  server.NewServer(logger),
 		peers:   make(map[string]service.ServiceClient),
-		state:   utils.RELEASED,
+		state:   RELEASED,
 		time:    time,
 		logger:  logger,
 		lamport: utils.NewLamport(),
-		queue: utils.NewQueue(),
+		queue:   utils.NewQueue(),
 	}
 }

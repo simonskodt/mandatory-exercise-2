@@ -18,10 +18,9 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ServiceClient interface {
-	BroadcastRequest(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Reply, error)
-	ReplySender(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Done, error)
-	Publish(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Done, error)
-	GetName(ctx context.Context, in *Send, opts ...grpc.CallOption) (*Info, error)
+	Publish(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Reply, error)
+	ReplySender(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Reply, error)
+	GetName(ctx context.Context, in *InfoRequest, opts ...grpc.CallOption) (*InfoReply, error)
 }
 
 type serviceClient struct {
@@ -32,26 +31,8 @@ func NewServiceClient(cc grpc.ClientConnInterface) ServiceClient {
 	return &serviceClient{cc}
 }
 
-func (c *serviceClient) BroadcastRequest(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Reply, error) {
+func (c *serviceClient) Publish(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Reply, error) {
 	out := new(Reply)
-	err := c.cc.Invoke(ctx, "/Service.Service/BroadcastRequest", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *serviceClient) ReplySender(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Done, error) {
-	out := new(Done)
-	err := c.cc.Invoke(ctx, "/Service.Service/ReplySender", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *serviceClient) Publish(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Done, error) {
-	out := new(Done)
 	err := c.cc.Invoke(ctx, "/Service.Service/Publish", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -59,9 +40,18 @@ func (c *serviceClient) Publish(ctx context.Context, in *Request, opts ...grpc.C
 	return out, nil
 }
 
-func (c *serviceClient) GetName(ctx context.Context, in *Send, opts ...grpc.CallOption) (*Info, error) {
-	out := new(Info)
-	err := c.cc.Invoke(ctx, "/Service.Service/getName", in, out, opts...)
+func (c *serviceClient) ReplySender(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Reply, error) {
+	out := new(Reply)
+	err := c.cc.Invoke(ctx, "/Service.Service/ReplySender", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *serviceClient) GetName(ctx context.Context, in *InfoRequest, opts ...grpc.CallOption) (*InfoReply, error) {
+	out := new(InfoReply)
+	err := c.cc.Invoke(ctx, "/Service.Service/GetName", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -72,10 +62,9 @@ func (c *serviceClient) GetName(ctx context.Context, in *Send, opts ...grpc.Call
 // All implementations must embed UnimplementedServiceServer
 // for forward compatibility
 type ServiceServer interface {
-	BroadcastRequest(context.Context, *Request) (*Reply, error)
-	ReplySender(context.Context, *Request) (*Done, error)
-	Publish(context.Context, *Request) (*Done, error)
-	GetName(context.Context, *Send) (*Info, error)
+	Publish(context.Context, *Request) (*Reply, error)
+	ReplySender(context.Context, *Request) (*Reply, error)
+	GetName(context.Context, *InfoRequest) (*InfoReply, error)
 	mustEmbedUnimplementedServiceServer()
 }
 
@@ -83,16 +72,13 @@ type ServiceServer interface {
 type UnimplementedServiceServer struct {
 }
 
-func (UnimplementedServiceServer) BroadcastRequest(context.Context, *Request) (*Reply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method BroadcastRequest not implemented")
-}
-func (UnimplementedServiceServer) ReplySender(context.Context, *Request) (*Done, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ReplySender not implemented")
-}
-func (UnimplementedServiceServer) Publish(context.Context, *Request) (*Done, error) {
+func (UnimplementedServiceServer) Publish(context.Context, *Request) (*Reply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Publish not implemented")
 }
-func (UnimplementedServiceServer) GetName(context.Context, *Send) (*Info, error) {
+func (UnimplementedServiceServer) ReplySender(context.Context, *Request) (*Reply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReplySender not implemented")
+}
+func (UnimplementedServiceServer) GetName(context.Context, *InfoRequest) (*InfoReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetName not implemented")
 }
 func (UnimplementedServiceServer) mustEmbedUnimplementedServiceServer() {}
@@ -108,20 +94,20 @@ func RegisterServiceServer(s grpc.ServiceRegistrar, srv ServiceServer) {
 	s.RegisterService(&Service_ServiceDesc, srv)
 }
 
-func _Service_BroadcastRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Service_Publish_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Request)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ServiceServer).BroadcastRequest(ctx, in)
+		return srv.(ServiceServer).Publish(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/Service.Service/BroadcastRequest",
+		FullMethod: "/Service.Service/Publish",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServiceServer).BroadcastRequest(ctx, req.(*Request))
+		return srv.(ServiceServer).Publish(ctx, req.(*Request))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -144,26 +130,8 @@ func _Service_ReplySender_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Service_Publish_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Request)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ServiceServer).Publish(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/Service.Service/Publish",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServiceServer).Publish(ctx, req.(*Request))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _Service_GetName_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Send)
+	in := new(InfoRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -172,10 +140,10 @@ func _Service_GetName_Handler(srv interface{}, ctx context.Context, dec func(int
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/Service.Service/getName",
+		FullMethod: "/Service.Service/GetName",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServiceServer).GetName(ctx, req.(*Send))
+		return srv.(ServiceServer).GetName(ctx, req.(*InfoRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -188,19 +156,15 @@ var Service_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*ServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "BroadcastRequest",
-			Handler:    _Service_BroadcastRequest_Handler,
+			MethodName: "Publish",
+			Handler:    _Service_Publish_Handler,
 		},
 		{
 			MethodName: "ReplySender",
 			Handler:    _Service_ReplySender_Handler,
 		},
 		{
-			MethodName: "Publish",
-			Handler:    _Service_Publish_Handler,
-		},
-		{
-			MethodName: "getName",
+			MethodName: "GetName",
 			Handler:    _Service_GetName_Handler,
 		},
 	},
