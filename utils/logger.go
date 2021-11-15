@@ -12,10 +12,10 @@ const logPath = "..\\logs\\"
 // It consists of three prefix loggers InfoLogger, WarningLogger and ErrorLogger,
 // which sets their respective prefix to the log file.
 type Logger struct {
-	InfoLogger    *log.Logger	// InfoLogger adds the prefix "INFO" to the log string at each call.
-	WarningLogger *log.Logger	// WarningLogger adds the prefix "WARNING" to the log string at each call.
-	ErrorLogger   *log.Logger	// ErrorLogger adds the prefix "ERROR" to the log string at each call.
-	file *os.File
+	InfoLogger    *log.Logger // InfoLogger adds the prefix "INFO" to the log string at each call.
+	WarningLogger *log.Logger // WarningLogger adds the prefix "WARNING" to the log string at each call.
+	ErrorLogger   *log.Logger // ErrorLogger adds the prefix "ERROR" to the log string at each call.
+	file          *os.File
 }
 
 // InfoPrintln Prints both to the log file and to the console.
@@ -75,8 +75,6 @@ func NewLogger(filename string) *Logger {
 		InfoLogger:    log.New(file, "INFO: ", log.LstdFlags),
 		WarningLogger: log.New(file, "WARNING: ", log.LstdFlags),
 		ErrorLogger:   log.New(file, "ERROR: ", log.LstdFlags|log.Lshortfile),
-		file: file,
+		file:          file,
 	}
 }
-
-

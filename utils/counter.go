@@ -4,12 +4,12 @@ import "sync"
 
 // Counter is a thread safe simple counter.
 type Counter struct {
-	value int		// value is the current value of the Counter.
-	mu sync.Mutex
+	value int // value is the current value of the Counter.
+	mu    sync.Mutex
 }
 
 // Increment increments the counter by 1.
-func (c *Counter) Increment()  {
+func (c *Counter) Increment() {
 	defer c.mu.Unlock()
 	c.mu.Lock()
 	c.value++

@@ -9,7 +9,7 @@ type Lamport struct {
 }
 
 // Increment increments the lamport clock by 1.
-func (l *Lamport) Increment()  {
+func (l *Lamport) Increment() {
 	defer l.mu.Unlock()
 	l.mu.Lock()
 	l.clockValue++

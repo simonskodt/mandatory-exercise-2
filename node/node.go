@@ -19,17 +19,23 @@ import (
 
 // deleteLogsAfterExit determines whether to delete the log file for this node or not at program termination.
 const deleteLogsAfterExit = true
+
+// defaultAddress is the default address of all nodes.
 const defaultAddress = "localhost"
 
+// These constants represent the different states of a Node.
 const (
 	WANTED   int = 0
 	HELD         = 1
 	RELEASED     = 2
 )
 
+// The node of this process.
 var node *Node
 var done = make(chan int)
 
+// A Node is a single process running on an ip address.
+// It can communicate with other nodes.
 type Node struct {
 	name    string                           // name is the id of the Node.
 	address string                           // address is the address of the Node.
@@ -59,10 +65,12 @@ func main() {
 	node.start(*ports)
 
 	<-done
+	node.server.Stop()
 	node.logger.WarningPrintln("NODE STOPPED.")
 	os.Exit(0)
 }
 
+// registerPeer connects to and register another Node on this node.
 func (n *Node) registerPeer(port int) {
 	peer := client.NewClient(createIpAddress(defaultAddress, port), n.logger)
 	info, _ := peer.GetName(context.Background(), &service.InfoRequest{})
@@ -83,23 +91,25 @@ func (n *Node) start(ports string) {
 		go node.registerPeer(p)
 	}
 
+	// Wait before entering WANTED.
+	time.Sleep(time.Duration(n.time) * time.Second)
 	n.enter()
 }
 
 func (n *Node) enter() {
-	time.Sleep(time.Duration(n.time) * time.Second)
 	n.state = WANTED
 	n.logger.InfoPrintf("%v entered WANTED\n", n.name)
 
-	// Multicast
+	// Multicast and wait for replies
 	replies := n.multicast()
 
 	if replies == len(n.peers) {
 		n.state = HELD
+		n.logger.InfoPrintf("%v entered HELD\n", n.name)
 		time.Sleep(5 * time.Second)
 		n.exit()
 	} else {
-		fmt.Println("NOT ENOUGH", replies, " LENGTH:", len(n.peers))
+		n.logger.WarningPrintf("%v did not get enough replies: %v/%v", replies, len(n.peers))
 	}
 }
 
@@ -145,6 +155,7 @@ func (n *Node) multicast() int {
 	return replies.Value()
 }
 
+// receive a service.Request from a Node and either reply back to the Node or enqueue it in the queue.
 func (n *Node) receive(lamport int32, name string) error {
 	n.logger.InfoPrintf("%v received request from %v.\n", n.name, name)
 
@@ -193,7 +204,6 @@ func setupCloseHandler() {
 			node.logger.DeleteLog()
 		}
 		<-c
-		node.server.Stop()
 		close(done)
 	}()
 }
@@ -216,11 +226,11 @@ func NewNode(name string, address string, serverPort int, time int) *Node {
 		address: address,
 		port:    serverPort,
 		server:  server.NewServer(logger),
+		lamport: utils.NewLamport(),
+		queue:   utils.NewQueue(),
 		peers:   make(map[string]service.ServiceClient),
 		state:   RELEASED,
 		time:    time,
 		logger:  logger,
-		lamport: utils.NewLamport(),
-		queue:   utils.NewQueue(),
 	}
 }
