@@ -18,7 +18,7 @@ import (
 )
 
 // deleteLogsAfterExit determines whether to delete the log file for this node or not at program termination.
-const deleteLogsAfterExit = true
+const deleteLogsAfterExit = false
 
 // defaultAddress is the default address of all nodes.
 const defaultAddress = "127.0.0.1"
