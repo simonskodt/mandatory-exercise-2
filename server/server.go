@@ -2,9 +2,9 @@ package server
 
 import (
 	"google.golang.org/grpc"
+	"mandatory-exercise-2/service"
+	"mandatory-exercise-2/utils"
 	"net"
-	"service"
-	"utils"
 )
 
 // A Server is an gRPC server.

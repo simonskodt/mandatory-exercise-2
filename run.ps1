@@ -4,10 +4,7 @@ param([Int32]$nodes=3)
 #go run . -name node2 -address 127.0.0.1 -sport 8082 -bport 8083 -cport 8081
 
 $names = @('node0', 'node1', 'node2', 'node3')
-$address = '127.0.0.1'
-$sports = @(8080, 8082, 8084, 8086)
-$bports = @(8081, 8083, 8085, 8087)
-$cport = 8081
+$sports = @(8080, 8081, 8082, 8083)
 
 for ($i = 0; $i -lt $nodes; $i++) {
     $name = $i
@@ -15,7 +12,6 @@ for ($i = 0; $i -lt $nodes; $i++) {
     if ($i -lt $names.count) {
         $name = $names[$i]
         $sport = $sports[$i]
-        $bport = $bports[$i]
     } else {
         "WARNING: Max number of nodes for this script has been created."
         "Not creating any more nodes!"
@@ -28,7 +24,7 @@ for ($i = 0; $i -lt $nodes; $i++) {
             $host.UI.RawUI.ForegroundColor = "white";
             Clear-Host;
             cd node;
-            go run . -name ' + $name +' -address ' + $address + ' -sport ' + $sport + ' -bport ' + $bport + ' -cport ' + $cport +';
+            go run . -name ' + $name +' -address ' + $address + ' -sport ' + $sport + ' -bport ' + ';
         }'
 
     invoke-expression -Command $Command

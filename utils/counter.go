@@ -15,6 +15,13 @@ func (c *Counter) Increment() {
 	c.value++
 }
 
+// Reset the counter.
+func (c *Counter) Reset()  {
+	defer c.mu.Unlock()
+	c.mu.Lock()
+	c.value = 0
+}
+
 // Value returns the Counter's value
 func (c *Counter) Value() int {
 	return c.value

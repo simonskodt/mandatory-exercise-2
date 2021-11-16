@@ -20,7 +20,7 @@ const _ = grpc.SupportPackageIsVersion7
 type ServiceClient interface {
 	Publish(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Reply, error)
 	ReplySender(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Reply, error)
-	GetName(ctx context.Context, in *InfoRequest, opts ...grpc.CallOption) (*InfoReply, error)
+	GetName(ctx context.Context, in *NameRequest, opts ...grpc.CallOption) (*NameReply, error)
 }
 
 type serviceClient struct {
@@ -49,8 +49,8 @@ func (c *serviceClient) ReplySender(ctx context.Context, in *Request, opts ...gr
 	return out, nil
 }
 
-func (c *serviceClient) GetName(ctx context.Context, in *InfoRequest, opts ...grpc.CallOption) (*InfoReply, error) {
-	out := new(InfoReply)
+func (c *serviceClient) GetName(ctx context.Context, in *NameRequest, opts ...grpc.CallOption) (*NameReply, error) {
+	out := new(NameReply)
 	err := c.cc.Invoke(ctx, "/Service.Service/GetName", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -64,7 +64,7 @@ func (c *serviceClient) GetName(ctx context.Context, in *InfoRequest, opts ...gr
 type ServiceServer interface {
 	Publish(context.Context, *Request) (*Reply, error)
 	ReplySender(context.Context, *Request) (*Reply, error)
-	GetName(context.Context, *InfoRequest) (*InfoReply, error)
+	GetName(context.Context, *NameRequest) (*NameReply, error)
 	mustEmbedUnimplementedServiceServer()
 }
 
@@ -78,7 +78,7 @@ func (UnimplementedServiceServer) Publish(context.Context, *Request) (*Reply, er
 func (UnimplementedServiceServer) ReplySender(context.Context, *Request) (*Reply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReplySender not implemented")
 }
-func (UnimplementedServiceServer) GetName(context.Context, *InfoRequest) (*InfoReply, error) {
+func (UnimplementedServiceServer) GetName(context.Context, *NameRequest) (*NameReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetName not implemented")
 }
 func (UnimplementedServiceServer) mustEmbedUnimplementedServiceServer() {}
@@ -131,7 +131,7 @@ func _Service_ReplySender_Handler(srv interface{}, ctx context.Context, dec func
 }
 
 func _Service_GetName_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(InfoRequest)
+	in := new(NameRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -143,7 +143,7 @@ func _Service_GetName_Handler(srv interface{}, ctx context.Context, dec func(int
 		FullMethod: "/Service.Service/GetName",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServiceServer).GetName(ctx, req.(*InfoRequest))
+		return srv.(ServiceServer).GetName(ctx, req.(*NameRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

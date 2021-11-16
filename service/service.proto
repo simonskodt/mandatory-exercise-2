@@ -10,28 +10,26 @@ package Service;
 
 message Request {
   int32 lamport = 1;
-  string id = 2;
+  string name = 2;
 }
 
 message Reply {
   int32 lamport = 1;
-  string id = 2;
+  string name = 2;
   bool ack = 3;
 }
 
-message InfoReply {
+message NameReply {
   string name = 1;
-  string address = 2;
 }
 
-message InfoRequest {
+message NameRequest {
   string name = 1;
-  string address = 2;
 }
 
 service Service {
   rpc Publish (Request) returns (Reply);
   rpc ReplySender (Request) returns (Reply);
-  rpc GetName(InfoRequest) returns (InfoReply);
+  rpc GetName(NameRequest) returns (NameReply);
 }
 
