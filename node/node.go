@@ -174,6 +174,7 @@ func (n *Node) receive(lamport int32, name string) error {
 
 func (n *Node) exit() {
 	n.state = RELEASED
+	n.logger.InfoPrintf("%v entered RELEASED\n", n.name)
 	for !n.queue.IsEmpty() {
 		_, name := n.queue.Dequeue()
 		n.peers[name].ReplySender(context.Background(), &service.Request{})
