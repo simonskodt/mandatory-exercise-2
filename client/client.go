@@ -13,7 +13,7 @@ func NewClient(ipAddress string, logger *utils.Logger) service.ServiceClient {
 	conn, err := grpc.Dial(ipAddress, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		defer conn.Close()
-		logger.ErrorFatalf("Could not connect to peer. :: %v", err)
+		logger.ErrorFatalf("Could not connect to peer at %v. :: %v", ipAddress, err)
 	}
 
 	logger.InfoPrintf("Successfully connected to peer at %v.\n", ipAddress)

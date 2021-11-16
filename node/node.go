@@ -21,7 +21,7 @@ import (
 const deleteLogsAfterExit = true
 
 // defaultAddress is the default address of all nodes.
-const defaultAddress = "localhost"
+const defaultAddress = "127.0.0.1"
 
 // Constants which represent the different states of a node.
 const (
@@ -45,7 +45,7 @@ type node struct {
 	queue      *utils.Queue                     // queue is the node's FIFO queue of other nodes.
 	repCounter *utils.Counter                   // repCounter counts the number of replies from other peers.
 	peers      map[string]service.ServiceClient // peers is a map of all the other nodes in the cluster, mapping a node name, to a service.ServiceClient.
-	delay      time.Duration                    // delay time before entering state WANTED.
+	delay      int			                    // delay time before entering state WANTED.
 	service.UnimplementedServiceServer
 }
 
@@ -53,15 +53,16 @@ func main() {
 	var name = flag.String("name", "node0", "The unique name of the node.")
 	var address = flag.String("address", defaultAddress, "The address of the node.")
 	var serverPort = flag.Int("sport", 8080, "The server port.")
-	var ports = flag.String("ports", "", "The ports to the other nodes.")
-	var delay = flag.Duration("delay", 0, "The delay time in seconds before the node enters enter().") //flag.Int("delay", 0, "The delay start time.")
+	var ipAddresses = flag.String("ips", "", "The ip addresses to the other nodes.")
+	var delay = flag.Int("delay", 0, "The delay start time.")
+	flag.Parse()
 
 	// Setup close handler for CTRL + C
 	setupCloseHandler()
 
 	//Create and start the node.
 	n := newNode(*name, *address, *serverPort, *delay)
-	n.start(*ports)
+	go n.start(*ipAddresses)
 
 	<-done
 	n.stop()
@@ -72,8 +73,8 @@ func main() {
 }
 
 // registerPeer connects to and registers another node on this node at the specified port.
-func (n *node) registerPeer(port int) {
-	peer := client.NewClient(createIpAddress(defaultAddress, port), n.logger)
+func (n *node) registerPeer(ipAddress string) {
+	peer := client.NewClient(ipAddress, n.logger)
 	info, err := peer.GetName(context.Background(), &service.NameRequest{Name: n.name})
 	if err != nil {
 		n.logger.ErrorFatalf("Could not fetch name of peer. :: %v", err)
@@ -82,19 +83,34 @@ func (n *node) registerPeer(port int) {
 }
 
 // start the node and connect to other peers (nodes).
-func (n *node) start(ports string) {
+func (n *node) start(ipAddresses string) {
 	n.logger.WarningPrintln("STARTING NODE...")
 	n.server.Start(n.ipAddress.String(), n)
 	n.logger.WarningPrintln("NODE STARTED.")
 
-	peerPorts := strings.Split(ports, ":")
-	for _, port := range peerPorts {
-		p, _ := strconv.Atoi(port)
-		go n.registerPeer(p)
+	peerAddresses := strings.Split(ipAddresses, ",")
+	for _, ipAddress := range peerAddresses {
+		address := ipAddress
+		if !strings.Contains(ipAddress, ":") {
+			address = defaultAddress + ":" + address
+		}
+
+		ip, err := net.ResolveTCPAddr("tcp", address)
+		if err != nil {
+			n.logger.ErrorPrintf("Invalid ip address %v. Skipping", address)
+			continue
+		}
+
+		if ip.String() == n.ipAddress.String() {
+			n.logger.WarningPrintf("Trying to connect to self (%v). Skipping!", address)
+			continue
+		}
+
+		n.registerPeer(address)
 	}
 
 	// Wait before entering WANTED.
-	time.Sleep(n.delay * time.Second)
+	time.Sleep(time.Duration(n.delay) * time.Second)
 	n.enter()
 }
 
@@ -118,6 +134,7 @@ func (n *node) enter() {
 	if replies == len(n.peers) {
 		n.state = HELD
 		n.logger.InfoPrintf("%v entered HELD\n", n.name)
+		n.logger.InfoPrintf("%v IS NOW IN THE CRITICAL SECTION!\n", n.name)
 		time.Sleep(5 * time.Second)
 		n.exit()
 	} else {
@@ -239,9 +256,9 @@ func setupCloseHandler() {
 }
 
 // newNode creates a new node with the specified unique name and ip address.
-func newNode(name string, address string, serverPort int, delay time.Duration) *node {
+func newNode(name string, address string, serverPort int, delay int) *node {
 	logger := utils.NewLogger(name)
-	logger.WarningPrintf("CREATING NODE WITH ID '%v' AND IP ADDRESS '%v'", name, address)
+	logger.WarningPrintf("CREATING NODE WITH ID '%v' AND IP ADDRESS '%v:%v'", name, address, serverPort)
 
 	ipAddress, err := net.ResolveTCPAddr("tcp", createIpAddress(address, serverPort))
 	if err != nil {
