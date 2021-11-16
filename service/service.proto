@@ -16,6 +16,7 @@ message Request {
 message Reply {
   int32 lamport = 1;
   string id = 2;
+  bool ack = 3;
 }
 
 message InfoReply {

@@ -14,12 +14,7 @@ func NewClient(ipAddress string, logger *utils.Logger) service.ServiceClient {
 	if err != nil {
 		logger.ErrorFatalf("Could not connect to peer. :: %v", err)
 	}
-	defer func(conn *grpc.ClientConn) {
-		err := conn.Close()
-		if err != nil {
-			logger.ErrorFatalf("Could not close connection of peer at %v. :: %v", ipAddress, err)
-		}
-	}(conn)
+	//defer conn.Close()
 
 	logger.InfoPrintln("Successfully connected to peer.")
 
