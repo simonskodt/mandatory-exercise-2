@@ -33,6 +33,7 @@ const (
 // The node of this process.
 var node *Node
 var done = make(chan int)
+var reCh = make(chan int, 2)
 
 // A Node is a single process running on an ip address.
 // It can communicate with other nodes.
@@ -40,7 +41,7 @@ type Node struct {
 	name    string                           // name is the id of the Node.
 	address string                           // address is the address of the Node.
 	port    int                              // port is the port of the Node.
-	server  *server.Server                   // server is the internal server.Server of the Node.
+	server  *server.Server 					 // server is the internal server.Server of the Node.
 	peers   map[string]service.ServiceClient // peers is a map of all the other nodes in the cluster, mapping a Node name, to a service.ServiceClient.
 	logger  *utils.Logger                    // logger is a log which logs specified
 	lamport *utils.Lamport                   // lamport is a logical clock.
@@ -73,7 +74,10 @@ func main() {
 // registerPeer connects to and register another Node on this node.
 func (n *Node) registerPeer(port int) {
 	peer := client.NewClient(createIpAddress(defaultAddress, port), n.logger)
-	info, _ := peer.GetName(context.Background(), &service.InfoRequest{})
+	info, err := peer.GetName(context.Background(), &service.InfoRequest{})
+	if err != nil {
+		fmt.Printf("%v", err)
+	}
 	n.peers[info.Name] = peer
 }
 
@@ -109,22 +113,21 @@ func (n *Node) enter() {
 		time.Sleep(5 * time.Second)
 		n.exit()
 	} else {
-		n.logger.WarningPrintf("%v did not get enough replies: %v/%v", replies, len(n.peers))
+		n.logger.WarningPrintf("%v did not get enough replies: %v/%v", n.name, replies, len(n.peers))
 	}
 }
 
 // multicast sends a request to all peers of a Node and counts and returns the number of replies.
 func (n *Node) multicast() int {
-	n.logger.InfoPrintf("%v is now multicasting to peers.", n.name)
+	// Increment Lamport
+	n.lamport.Increment()
+	n.logger.InfoPrintf("(%v, Send) %v is now multicasting to peers.\n",  n.lamport.Value(), n.name)
 
 	wait := sync.WaitGroup{}
 	doneSending := make(chan int)
 
 	// Thread safe counter
 	replies := utils.NewCounter()
-
-	// Increment Lamport
-	n.lamport.Increment()
 
 	for clientName, serviceClient := range n.peers {
 		wait.Add(1)
@@ -133,14 +136,14 @@ func (n *Node) multicast() int {
 			defer wait.Done()
 			n.logger.InfoPrintf("(%v, Send) %v is sending a request to %v.\n", n.lamport.Value(), n.name, receiverName)
 
-			_, err := client.Publish(context.Background(), &service.Request{Lamport: n.lamport.Value(), Id: n.name})
+			reply, err := client.Publish(context.Background(), &service.Request{Lamport: n.lamport.Value(), Id: n.name})
 			if err != nil {
 				n.logger.ErrorPrintf("Error sending multicast to %v. :: %v\n", receiverName, err)
-			} else {
-				n.logger.InfoPrintf("Successfully send request to %v.\n", receiverName)
-				replies.Increment()
 			}
 
+			if reply.Ack {
+				replies.Increment()
+			}
 		}(clientName, serviceClient)
 	}
 
@@ -150,26 +153,26 @@ func (n *Node) multicast() int {
 	}()
 
 	<-doneSending
-	n.logger.InfoPrintf("%v done multicasting. Replies: %v", n.name, replies.Value())
+	n.logger.InfoPrintf("(%v) %v done multicasting. Replies: %v/%v", n.lamport.Value(), n.name, replies.Value(), len(n.peers))
 
 	return replies.Value()
 }
 
 // receive a service.Request from a Node and either reply back to the Node or enqueue it in the queue.
-func (n *Node) receive(lamport int32, name string) error {
+func (n *Node) receive(lamport int32, name string) bool {
 	n.logger.InfoPrintf("%v received request from %v.\n", n.name, name)
 
 	if n.state == HELD || (n.state == WANTED && n.lamport.CompareLamportAndProcess(n.name, lamport, name)) {
+		n.logger.InfoPrintf("Comparing %v (%v) with %v (%v)", n.name, n.lamport.Value(), name, lamport)
 		n.queue.Enqueue(lamport, name)
-		n.lamport.MaxAndIncrement(lamport)
-		// TODO: Observer for evt. fejl ved MaxAndIncrement
-		return fmt.Errorf("(%v, Receive) %v is enqueing %v\n", n.lamport.Value(), n.name, name)
+		n.logger.InfoPrintf("%v is enqueueing %v", n.name, name)
+		return false
 	}
 
-	n.lamport.MaxAndIncrement(lamport) // Receive
-	n.lamport.Increment()              // Send
 	n.logger.InfoPrintf("(%v, Receive) %v is replying %v -> GO AHEAD!\n", n.lamport.Value(), n.name, name)
-	return nil
+	n.lamport.MaxAndIncrement(lamport) // Receive
+	n.lamport.Increment()              // Send reply back
+	return true
 }
 
 func (n *Node) exit() {
@@ -177,18 +180,24 @@ func (n *Node) exit() {
 	n.logger.InfoPrintf("%v entered RELEASED\n", n.name)
 	for !n.queue.IsEmpty() {
 		_, name := n.queue.Dequeue()
-		n.peers[name].ReplySender(context.Background(), &service.Request{})
+		n.logger.InfoPrintf("%v dequeued %v", n.name, name)
+		_, err := n.peers[name].ReplySender(context.Background(), &service.Request{Id: n.name, Lamport: n.lamport.Value()})
+		if err != nil {
+			n.logger.ErrorPrintf("Error dequeueing %v. :: %v", name, err)
+		}
 	}
 }
 
 // Publish receives requests from another node.
 func (n *Node) Publish(_ context.Context, r *service.Request) (*service.Reply, error) {
 	reply := n.receive(r.Lamport, r.Id)
-	return &service.Reply{}, reply
+
+	return &service.Reply{Ack: reply}, nil
 }
 
 func (n *Node) ReplySender(_ context.Context, r *service.Request) (*service.Reply, error) {
-	fmt.Printf("REPLY_SENDER (%v, Receive) NODE %v is replying %v\n", n.lamport.Value(), n.name, r.Id)
+	n.logger.InfoPrintf("(%v, Send) %v is replying %v.\n", n.lamport.Value(), r.Id, n.name)
+	close(reCh)
 	return &service.Reply{}, nil
 }
 
