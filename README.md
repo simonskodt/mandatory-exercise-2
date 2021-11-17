@@ -98,7 +98,7 @@ Let's say we have three nodes:
 To run the nodes as separate go processes, enter the following in separate terminals in the node directory:
 > `go run . -name node0 -sport 8080 -ips 127.0.0.1:8081,127.0.0.1:8083`
 
-> `go run . -name node1 -address 128.0.0.1 -sport 8081 -ips 8080,127.0.0.1:8083`
+> `go run . -name node1 -address 127.0.0.1 -sport 8081 -ips 8080,127.0.0.1:8083`
 
 > `go run . -name node2 -address 127.0.0.1 -sport 8083 -ips 8080,127.0.0.1:8081`
 
