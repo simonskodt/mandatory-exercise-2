@@ -53,9 +53,9 @@ The address of the node is optional.
 
 It can be specified with: `-address <address>`
 
-E.g., to start a node with the address `128.0.0.1` do: 
+E.g., to start a node with the address `127.0.0.1` do: 
 
-> `go run . -address 128.0.0.1`
+> `go run . -address 127.0.0.1`
 
 If no address argument is giving, it will pick a default value ("localhost")
 
@@ -84,7 +84,7 @@ You can simply enter the port numbers (the address will then be set to "localhos
 
 E.g., to start a node which have to know about another node having the ip address `128.0.0.1:8081` do:
 
-> `go run . -ips 128.0.0.1:8081`
+> `go run . -ips 127.0.0.1:8081`
 
 (You can mix and match the above for each ip address)
 
@@ -92,15 +92,15 @@ E.g., to start a node which have to know about another node having the ip addres
 
 Let's say we have three nodes:
 1. `node0` to run at `localhost:8080`
-2. `node1` to run at `128.0.0.1:8081`
+2. `node1` to run at `127.0.0.1:8081`
 3. `node2` to run at `127.0.0.1:8083`
 
 To run the nodes as separate go processes, enter the following in separate terminals in the node directory:
-> `go run . -name node0 -sport 8080 -ips 128.0.0.1:8081,127.0.0.1:8083`
+> `go run . -name node0 -sport 8080 -ips 127.0.0.1:8081,127.0.0.1:8083`
 
 > `go run . -name node1 -address 128.0.0.1 -sport 8081 -ips 8080,127.0.0.1:8083`
 
-> `go run . -name node2 -address 127.0.0.1 -sport 8083 -ips 8080,128.0.0.1:8081`
+> `go run . -name node2 -address 127.0.0.1 -sport 8083 -ips 8080,127.0.0.1:8081`
 
 ---
 
