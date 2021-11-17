@@ -82,7 +82,7 @@ You don't have to enter the whole ip address.
 You can simply enter the port numbers (the address will then be set to "localhost"):
 `-ips <port1>,<port2>,...`
 
-E.g., to start a node which have to know about another node having the ip address `128.0.0.1:8081` do:
+E.g., to start a node which have to know about another node having the ip address `127.0.0.1:8081` do:
 
 > `go run . -ips 127.0.0.1:8081`
 
