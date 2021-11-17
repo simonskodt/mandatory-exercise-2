@@ -9,10 +9,13 @@ Implementation of a distributed mutual exclusion between nodes in a distributed 
 
 Before starting a node please read "Before running".
 
+### Manually
+
 To start a node, run the following in the node directory: 
 
 > `go run . -name <name> -sport <port> -ips <other address>:<other port>`
 
+### With Script
 You can also start the program with a script for easy creation of nodes.
 This can be done by running `run.ps1` in PowerShell.
 
