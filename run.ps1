@@ -1,7 +1,5 @@
 param([Int32]$n=3)
 #Run with -nodes <number of nodes>
-#go run . -name node1 -address 127.0.0.1 -sport 8080 -bport 8081 -cport 8081
-#go run . -name node2 -address 127.0.0.1 -sport 8082 -bport 8083 -cport 8081
 
 $names = @('node0', 'node1', 'node2', 'node3', 'node4')
 $sports = @('8080', '8081', '8082', '8083', '8084')
