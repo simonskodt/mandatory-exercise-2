@@ -16,7 +16,7 @@ To start a node, run the following in the node directory:
 You can also start the program with a script for easy creation of nodes.
 This can be done by running `run.ps1` in PowerShell.
 
-You can specify how many nodes to start (supports up to 4) by writing:
+You can specify how many nodes to start (supports up to 5) by writing:
 
 > `run.ps1 -n <number of nodes>`
 
