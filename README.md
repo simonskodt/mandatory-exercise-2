@@ -7,9 +7,9 @@ Implementation of a distributed mutual exclusion between nodes in a distributed 
 
 ## How to run
 
-Before starting a node please read "Before running".
-
 ### Manually
+
+Before starting a node please read "Before running".
 
 To start a node, run the following in the node directory: 
 
